@@ -12,11 +12,10 @@ r = ones(M,N);
 r(:,1) = r_0; %initializes all r_0's 
 for n = 2:N %makes all negative values 0
     val = r(:,n-1) + k*(theta - r(:,n-1))*delta + beta*(sqrt(delta)*epsilon(:,n));
-    valIndic = (val < 0);
-    val(valIndic) = 0;
+    %valIndic = (val < 0);
+    %val(valIndic) = 0;
     r(:,n) = val;
 end
-
 
 end
 
