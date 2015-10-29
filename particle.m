@@ -58,7 +58,7 @@ for i=2:timeSteps
         dist = strikes(i, k+1) - strikes(i, k);
         deltaRow = delta(pricePaths(i, :), averageStrikes(i, k), dist);
         numerator(k) = etaSquared(i, :) * deltaRow';
-        denominator = sum(deltaRow);
+        denominator(k) = sum(deltaRow);
     end
  
     expectation(i, :) = numerator ./ denominator;
@@ -96,7 +96,7 @@ function [n] = kernel(x)
 
 n=1;
 
-if x>(1/2) && x<=(-1/2)
+if x>(1/2) || x<=(-1/2)
     n=0;
 end
 
