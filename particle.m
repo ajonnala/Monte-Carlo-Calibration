@@ -35,6 +35,9 @@ pricePaths(1, :) = initialPrice;
 expectation(1, :) = 1;
 
 
+% initialize initial beta
+beta(1, :) = getDupireVol(0, averageStrikes(1, :));
+
 for i=2:timeSteps
     % compute next price
     currentBeta = getBeta(pricePaths(i-1,:), averageStrikes(i-1, :), beta(i-1, :));
