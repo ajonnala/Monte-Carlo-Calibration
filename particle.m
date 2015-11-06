@@ -75,31 +75,44 @@ end
 end
 
 
+
+
+% generates the grid using the most probable points.
+% TODO: only run a few particles for this, just to get an approximation? 
+%    this will speed up actual runtime (but not asymptotic runtime)
+function [bins] mostProbableBins()
+
+
+end
+
+
+
+
+
 % kernel wrapper
 % returns vector
 function [output] = delta(prices, strike, dist)
+% note that kernel takes in a vector as input.
+% TODO: change dist to a vector.
 
-output = zeros(1, length(prices));
-
-%TODO vectorize --- should be easy but im not worrying about it right now
-for i = 1:length(prices)
-    %TODO FIX THIS
-    output(i) = 1/dist * kernel((prices(i) - strike)/dist);
-end
-
-
+output = 1/dist * kernel((prices - strike)/dist);
 
 end
 
 
+% "naive" kernel.
+% vectorized. 
 function [n] = kernel(x)
 
-n=1;
+n = x>-0.5 & x<= 0.5;
 
-if x>(1/2) || x<=(-1/2)
-    n=0;
 end
 
+
+%vectorized Gaussian kernel. 
+function [n] = gaussianKernel(x)
+c = 1 / sqrt(2*pi);
+n = c * exp(-1/2 * x.^2);
 end
 
 
