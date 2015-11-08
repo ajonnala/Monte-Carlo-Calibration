@@ -1,9 +1,15 @@
 function [expectation] = particle(initialPrice, timeSteps, timeHorizon, ...
             numParticles, numStrikes, numEtaPaths )
 
+
+
+
 % parameters
 lambda = 1; % for the eta paths
 
+% constant for the equidistant bins function. We can eventually get rid of
+%   this. 
+M = 10;
 
 deltaT = 1/(timeSteps) * timeHorizon; 
 
@@ -26,8 +32,12 @@ expectation = zeros(timeSteps, numStrikes-1);
 beta = zeros(timeSteps, numStrikes-1);
 pricePaths = zeros(timeSteps, numParticles);
 
-strikes = generateStrikes(timeSteps, numStrikes);
-averageStrikes = genAverageStrikes(strikes);
+% initialize strikes
+strikes = zeros(timeSteps, numStrikes);
+averageStrikes = zeros(timeSteps, numStrikes-1);
+strikes(1, :) = equidistantBins(numStrikes, M);
+averageStrikes(1, :) = genAverageBin(strikes(1, :));
+
 
 % initialize the first row of pricePaths --> current spot
 pricePaths(1, :) = initialPrice;
@@ -45,6 +55,11 @@ for i=2:timeSteps
     pricePaths(i, :) = pricePaths(i, :) .* exp( sqrt(deltaT) * w(i-1, :) .* ...
             currentBeta .* etaPaths(i-1, :) - (1 / 2) * (currentBeta).^2 .* ... 
             etaSquared(i-1, :) * deltaT );
+    
+    % update strikes
+    strikes(i, :) = mostProbableBins(numStrikes, pricePaths(i, :));
+    averageStrikes(i, :) = genAverageBin(strikes(i, :));
+    
     
     % compute expectation
     
@@ -77,15 +92,71 @@ end
 
 
 
-% generates the grid using the most probable points.
-% TODO: only run a few particles for this, just to get an approximation? 
-%    this will speed up actual runtime (but not asymptotic runtime)
-function [bins] mostProbableBins()
 
+% generates the grid using equidistant points between 0 and maxVal
+function [bins] = equidistantBins(numBins, maxVal)
+
+bins = zeros(1, numBins);
+for i=1:numBins
+    bins(i) = maxVal/(numBins-1)*(i-1);
+end
 
 end
 
 
+function [avgBins] = genAverageBin(bins)
+
+numAvgBins = length(bins) - 1; %-1 because we're only using avg points
+avgBins = zeros(1, numAvgBins);
+for i = 1:numAvgBins
+    avgBins(i) = (1/2)*(bins(i) + bins(i+1));
+end
+
+end
+
+
+% generates the grid using the most probable points.
+% TODO: only run a few particles for this, just to get an approximation? 
+%    this will speed up actual runtime (but not asymptotic runtime)
+%    This might not be possible for multiple timesteps.
+function [bins] = mostProbableBins(numBins, prices)
+
+bins = zeros(1, numBins);
+
+% f: CDF of prices evaluated at x.
+% note that x and f are sorted.
+[f, x] = ecdf(prices);
+
+% if P = numParticles, B = numBins, then this takes O(B logP). Can this
+%    be improved?
+%    If we were to use a naive linear scan, we can do this in O(P).
+for i=1:numBins
+    % +1 since we don't want a strike corresponding to cdf value of 1
+    cdfProb = i/(numBins+1); 
+    
+    % binary search O(log n)
+    lower = 1;
+    upper = length(x);
+    % +1 to allow termination when lower and upper are just 1 off
+    while (lower+1) < upper
+        % fix: round towards 0
+        mid = fix(lower + (upper-lower)/2);
+        if f(mid) < cdfProb
+            lower = mid;
+        elseif f(mid) > cdfProb
+            upper = mid;
+        else
+            lower = mid;
+            upper = mid;
+        end
+    end
+    
+    bins(i) = x(mid);
+    
+    
+end
+
+end
 
 
 
@@ -101,6 +172,7 @@ end
 
 
 % "naive" kernel.
+% output: 1 if x is in (-0.5, 0.5], 0 otherwise. 
 % vectorized. 
 function [n] = kernel(x)
 
@@ -116,6 +188,8 @@ n = c * exp(-1/2 * x.^2);
 end
 
 
+% OLD.
+%TODO: delete?
 function [avgStrikes] =genAverageStrikes(strikes)
 % value at (T_i, S_j) = the strike for which beta(T_i, S_j) is computed
 timeSteps = size(strikes, 1);
@@ -169,6 +243,9 @@ lambda = ones(1, n);
 
 end
 
+
+% OLD.
+%TODO: delete?
 function [strikes] = generateStrikes(t, n)
 
 % for now, uniformly generate strikes between 0 and M
