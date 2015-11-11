@@ -130,10 +130,11 @@ bins = zeros(1, numBins);
 % if P = numParticles, B = numBins, then this takes O(B logP). Can this
 %    be improved?
 %    If we were to use a naive linear scan, we can do this in O(P).
-% get bin cutoffs for CDFs from 0 to 1 in increments of 1/numBins.
+% get bin cutoffs for CDFs from 0 to 1 in increments of 1/(numStrikes),
+%    where numStrikes = numBins-1
 bins(1) = x(1);
 for i=1:numBins-1
-    cdfProb = i/(numBins); 
+    cdfProb = i/(numBins-1); 
     
     % binary search O(log n)
     lower = 1;
