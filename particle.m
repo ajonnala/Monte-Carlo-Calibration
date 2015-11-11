@@ -1,4 +1,4 @@
-function [expectation] = particle(initialPrice, timeSteps, timeHorizon, ...
+function [expectation, averageStrikes] = particle(initialPrice, timeSteps, timeHorizon, ...
             numParticles, numStrikes, numEtaPaths )
 
 
@@ -28,15 +28,15 @@ w = generateBrownian(timeSteps, numParticles);
 % particle step
 
 % numStrikes-1 because we're evaluating at midpoints
-expectation = zeros(timeSteps, numStrikes-1);
-beta = zeros(timeSteps, numStrikes-1);
+expectation = zeros(timeSteps, numStrikes);
+beta = zeros(timeSteps, numStrikes);
 pricePaths = zeros(timeSteps, numParticles);
 
 % initialize strikes
-strikes = zeros(timeSteps, numStrikes);
-averageStrikes = zeros(timeSteps, numStrikes-1);
-strikes(1, :) = equidistantBins(numStrikes, M);
-averageStrikes(1, :) = genAverageBin(strikes(1, :));
+bins = zeros(timeSteps, numStrikes+1);
+averageStrikes = zeros(timeSteps, numStrikes);
+bins(1, :) = equidistantBins(numStrikes+1, M);
+averageStrikes(1, :) = genAverageBin(bins(1, :));
 
 
 % initialize the first row of pricePaths --> current spot
@@ -57,8 +57,8 @@ for i=2:timeSteps
             etaSquared(i-1, :) * deltaT );
     
     % update strikes
-    strikes(i, :) = mostProbableBins(numStrikes, pricePaths(i, :));
-    averageStrikes(i, :) = genAverageBin(strikes(i, :));
+    bins(i, :) = mostProbableBins(numStrikes+1, pricePaths(i, :));
+    averageStrikes(i, :) = genAverageBin(bins(i, :));
     
     
     % compute expectation
@@ -66,11 +66,11 @@ for i=2:timeSteps
     % procede one strike at a time.
     %TODO: parallelize?
     
-    numerator = zeros(1, numStrikes-1);
-    denominator = zeros(1, numStrikes-1);
+    numerator = zeros(1, numStrikes);
+    denominator = zeros(1, numStrikes);
     
-    for k=1:numStrikes-1
-        dist = strikes(i, k+1) - strikes(i, k);
+    for k=1:numStrikes
+        dist = bins(i, k+1) - bins(i, k);
         deltaRow = delta(pricePaths(i, :), averageStrikes(i, k), dist);
         numerator(k) = etaSquared(i, :) * deltaRow';
         denominator(k) = sum(deltaRow);
@@ -130,9 +130,10 @@ bins = zeros(1, numBins);
 % if P = numParticles, B = numBins, then this takes O(B logP). Can this
 %    be improved?
 %    If we were to use a naive linear scan, we can do this in O(P).
-for i=1:numBins
-    % +1 since we don't want a strike corresponding to cdf value of 1
-    cdfProb = i/(numBins+1); 
+% get bin cutoffs for CDFs from 0 to 1 in increments of 1/numBins.
+bins(1) = x(1);
+for i=1:numBins-1
+    cdfProb = i/(numBins); 
     
     % binary search O(log n)
     lower = 1;
@@ -151,10 +152,12 @@ for i=1:numBins
         end
     end
     
-    bins(i) = x(mid);
+    bins(i+1) = x(mid);
     
     
 end
+
+
 
 end
 
