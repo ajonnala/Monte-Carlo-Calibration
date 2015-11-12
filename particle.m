@@ -1,4 +1,4 @@
-function [expectation, averageStrikes] = particle(initialPrice, timeSteps, timeHorizon, ...
+function [expectation, averageStrikes, pricePaths] = particle(initialPrice, timeSteps, timeHorizon, ...
             numParticles, numStrikes, numEtaPaths )
 
 
@@ -127,37 +127,18 @@ bins = zeros(1, numBins);
 % note that x and f are sorted.
 [f, x] = ecdf(prices);
 
-% if P = numParticles, B = numBins, then this takes O(B logP). Can this
-%    be improved?
-%    If we were to use a naive linear scan, we can do this in O(P).
-% get bin cutoffs for CDFs from 0 to 1 in increments of 1/(numStrikes),
-%    where numStrikes = numBins-1
+% Note that as x is sorted, then the jth percentile value is at index
+%    (j/100)*numParticles.
+% We ignore everything after the 99th percentile. 
 bins(1) = x(1);
-for i=1:numBins-1
-    cdfProb = i/(numBins-1); 
-    
-    % binary search O(log n)
-    lower = 1;
-    upper = length(x);
-    % +1 to allow termination when lower and upper are just 1 off
-    while (lower+1) < upper
-        % fix: round towards 0
-        mid = fix(lower + (upper-lower)/2);
-        if f(mid) < cdfProb
-            lower = mid;
-        elseif f(mid) > cdfProb
-            upper = mid;
-        else
-            lower = mid;
-            upper = mid;
-        end
-    end
-    
-    bins(i+1) = x(mid);
-    
-    
-end
+maxIndex = ceil(0.99*size(prices, 2));
+bins(numBins) = x(maxIndex);
 
+for i=2:numBins-1
+    cdfProb = (i-1)/(numBins - 1);
+    index = ceil(cdfProb * maxIndex);
+    bins(i) = x(index);
+end
 
 
 end
