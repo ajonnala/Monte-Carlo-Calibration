@@ -8,18 +8,47 @@
 %
 %
 %<<<<<<<<<<<<<<<<<<<<<<<
-function [expectation, averageStrikes] = particle(initialPrice, timeSteps, timeHorizon, ...
+function [expectation, averageStrikes, strikeBins] = particle(initialPrice, timeSteps, timeHorizon, ...
             numParticles, numStrikes )
 
 
+% first, run the particle algorithm with no path resampling to get an 
+%   estimate for the bin cutoffs.
+[~, ~, strikeBins] = runParticle(initialPrice, timeSteps, timeHorizon, ...
+        numParticles, {1, numStrikes});
+% now, run the particle algorithm again, but this time with the bin cutoffs
+%   from before.
+[expectation, averageStrikes, ~] = runParticle(initialPrice, timeSteps, timeHorizon, ...
+        numParticles, {0, numStrikes, strikeBins});
+        
+end
+        
+        
+% strikeCell: {generate (bool), numStrikes (int), bins (array)}. 
+% If generate == 0, then we're passing in bins that we want to use. 
+%   Otherwise, we are generating bins at each step according to numStrikes.
+function [expectation, averageStrikes, bins] = runParticle(initialPrice, timeSteps, ...
+        timeHorizon, numParticles, strikeCell )
+
+% constant for the equidistant bins function. We can eventually get rid of
+%   this. 
+M = 10;
+    
+generateOrNo = strikeCell{1};
+numStrikes = strikeCell{2};
+if (generateOrNo == 0)
+    bins = strikeCell{3};
+else 
+    % initialize bins
+    bins = zeros(timeSteps, numStrikes+1);
+    bins(1, :) = equidistantBins(numStrikes+1, M);
+end
 
 
 % parameters
 lambda = 1; % for the eta paths
 
-% constant for the equidistant bins function. We can eventually get rid of
-%   this. 
-M = 10;
+
 
 deltaT = 1/(timeSteps) * timeHorizon; 
 
@@ -37,9 +66,7 @@ Z = zeros(1, numParticles);
 V = zeros(timeSteps, 1);
 
 % initialize strikes
-bins = zeros(timeSteps, numStrikes+1);
 averageStrikes = zeros(timeSteps, numStrikes);
-bins(1, :) = equidistantBins(numStrikes+1, M);
 averageStrikes(1, :) = genAverageBin(bins(1, :));
 
 % initialize the first row of pricePaths --> current spot
@@ -64,8 +91,10 @@ for i=2:timeSteps
     
 	clear w; % free up some ram
         
-    %%% update strikes
-    bins(i, :) = mostProbableBins(numStrikes+1, pricePath);
+    %%% update strikes (and bins, if necessary)
+    if (generateOrNo ~= 0)
+        bins(i, :) = mostProbableBins(numStrikes+1, pricePath);
+    end
     averageStrikes(i, :) = genAverageBin(bins(i, :));
     
     %%% update eta
