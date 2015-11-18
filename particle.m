@@ -1,5 +1,15 @@
-function [expectation, averageStrikes, pricePaths] = particle(initialPrice, timeSteps, timeHorizon, ...
-            numParticles, numStrikes, numEtaPaths )
+%>>>>>>>>>>>>>>>>>>>>>>>
+%
+% particle.m
+% Nov 2016
+% 
+% Runs the particle method.
+% This version minimizes RAM usage
+%
+%
+%<<<<<<<<<<<<<<<<<<<<<<<
+function [expectation, averageStrikes] = particle(initialPrice, timeSteps, timeHorizon, ...
+            numParticles, numStrikes )
 
 
 
@@ -14,23 +24,17 @@ M = 10;
 deltaT = 1/(timeSteps) * timeHorizon; 
 
 
-% matrix of eta paths
-% dimensions: t x n'
-% n' = num of paths, t' = timesteps
-etaPaths = generateEtaPaths(timeSteps, deltaT, numEtaPaths, lambda);
-etaSquared = etaPaths .^ 2;
-
-% brownian paths
-% dimensions: t x n
-% n = num of paths, t = timesteps
-w = generateBrownian(timeSteps, numParticles);
 
 % particle step
 
-% numStrikes-1 because we're evaluating at midpoints
+
 expectation = zeros(timeSteps, numStrikes);
 beta = zeros(timeSteps, numStrikes);
-pricePaths = zeros(timeSteps, numParticles);
+etaPath = ones(1, numParticles);
+etaSquared = ones(1, numParticles);
+% Z, V is used in the eta path
+Z = zeros(1, numParticles);
+V = zeros(timeSteps, 1);
 
 % initialize strikes
 bins = zeros(timeSteps, numStrikes+1);
@@ -38,30 +42,43 @@ averageStrikes = zeros(timeSteps, numStrikes);
 bins(1, :) = equidistantBins(numStrikes+1, M);
 averageStrikes(1, :) = genAverageBin(bins(1, :));
 
-
 % initialize the first row of pricePaths --> current spot
-pricePaths(1, :) = initialPrice;
+pricePath = ones(1, numParticles) * initialPrice;
 % initialize first row of expectation ---> 1
 expectation(1, :) = 1;
-
 
 % initialize initial beta
 beta(1, :) = getDupireVol(0, averageStrikes(1, :));
 
+
+
+
 for i=2:timeSteps
-    % compute next price
-    currentBeta = getBeta(pricePaths(i-1,:), averageStrikes(i-1, :), beta(i-1, :));
-    pricePaths(i, :) = pricePaths(i-1, :) .* lambdaD(i, numParticles);
-    pricePaths(i, :) = pricePaths(i, :) .* exp( sqrt(deltaT) * w(i-1, :) .* ...
-            currentBeta .* etaPaths(i-1, :) - (1 / 2) * (currentBeta).^2 .* ... 
-            etaSquared(i-1, :) * deltaT );
+    w = generateBrownian(1, numParticles);
+    %%% compute next price
+    currentBeta = getBeta(pricePath, averageStrikes(i-1, :), beta(i-1, :));
+    pricePath = pricePath .* lambdaD(i, numParticles);
+    pricePath = pricePath .* exp( sqrt(deltaT) * w .* ...
+            currentBeta .* etaPath - (1 / 2) * (currentBeta).^2 .* ... 
+            etaSquared * deltaT );
     
-    % update strikes
-    bins(i, :) = mostProbableBins(numStrikes+1, pricePaths(i, :));
+	clear w; % free up some ram
+        
+    %%% update strikes
+    bins(i, :) = mostProbableBins(numStrikes+1, pricePath);
     averageStrikes(i, :) = genAverageBin(bins(i, :));
     
+    %%% update eta
+    w = generateBrownian(1, numParticles);
+    %TODO is this right?
+    Z = Z -lambda*Z*deltaT + gammaM((i-1)*deltaT)*sqrt(deltaT).*w;
+    clear w; % free up some ram
+    V(i) = V(i-1) + (gammaM((i-1)*deltaT))^2 * exp(2*lambda) * deltaT;
+    variance = exp(-2*lambda*i*deltaT) * V(i);
+    etaPath = exp(Z - repmat(variance, 1, numParticles));
+    etaSquared = etaPath .^2;
     
-    % compute expectation
+    %%% compute expectation
     
     % procede one strike at a time.
     %TODO: parallelize?
@@ -71,8 +88,8 @@ for i=2:timeSteps
     
     for k=1:numStrikes
         dist = bins(i, k+1) - bins(i, k);
-        deltaRow = delta(pricePaths(i, :), averageStrikes(i, k), dist);
-        numerator(k) = etaSquared(i, :) * deltaRow';
+        deltaRow = delta(pricePath, averageStrikes(i, k), dist);
+        numerator(k) = etaSquared * deltaRow';
         denominator(k) = sum(deltaRow);
     end
  
@@ -253,39 +270,7 @@ w = normrnd(0, 1, t, N);
 end
 
 
-function [etaPaths] = generateEtaPaths(timeSteps, deltaT, numEtaPaths, lambda)
-
-% dimension: time x paths
-W = generateBrownian(timeSteps, numEtaPaths);
-
-% forward euler
-Z = zeros(timeSteps, numEtaPaths);
-etaPaths = zeros(timeSteps, numEtaPaths);
-
-for n = 2:timeSteps
-    Z(n, :) = Z(n-1, :) -lambda*Z(n-1, :)*deltaT + ... 
-        gammaM((n-1)*deltaT)*sqrt(deltaT).*W(n, :);
-end
-
-% compute variances. variance(i) = variance at time i
-variance = zeros(timeSteps, 1);
-V = zeros(timeSteps, 1);
-for i = 2:timeSteps
-    % left endpoint approximation for the integral
-    V(i) = V(i-1) + (gammaM((i-1)*deltaT))^2 * ... 
-            exp(2*lambda) * deltaT;
-    variance(i) = exp(-2*lambda*i*deltaT) * V(i);
-end
-
-% compute the eta paths finally
-etaPaths = exp(Z - repmat(variance, 1, numEtaPaths));
-
-
-
-end
-
-
-
+% used in eta path
 function [n] = gammaM(t)
 
 n = 1;
