@@ -2,7 +2,7 @@
 %
 % particle.m
 % Nov 2016
-% 
+%
 % Runs the particle method.
 % This version minimizes RAM usage
 %
@@ -12,7 +12,7 @@ function [expectation, averageStrikes, strikeBins] = particle(initialPrice, time
             numParticles, numStrikes )
 
 
-% first, run the particle algorithm with no path resampling to get an 
+% first, run the particle algorithm with no path resampling to get an
 %   estimate for the bin cutoffs.
 [~, ~, strikeBins] = runParticle(initialPrice, timeSteps, timeHorizon, ...
         numParticles, {1, numStrikes});
@@ -20,25 +20,25 @@ function [expectation, averageStrikes, strikeBins] = particle(initialPrice, time
 %   from before.
 [expectation, averageStrikes, ~] = runParticle(initialPrice, timeSteps, timeHorizon, ...
         numParticles, {0, numStrikes, strikeBins});
-        
+
 end
-        
-        
-% strikeCell: {generate (bool), numStrikes (int), bins (array)}. 
-% If generate == 0, then we're passing in bins that we want to use. 
+
+
+% strikeCell: {generate (bool), numStrikes (int), bins (array)}.
+% If generate == 0, then we're passing in bins that we want to use.
 %   Otherwise, we are generating bins at each step according to numStrikes.
 function [expectation, averageStrikes, bins] = runParticle(initialPrice, timeSteps, ...
         timeHorizon, numParticles, strikeCell )
 
 % constant for the equidistant bins function. We can eventually get rid of
-%   this. 
+%   this.
 M = 10;
-    
+
 generateOrNo = strikeCell{1};
 numStrikes = strikeCell{2};
 if (generateOrNo == 0)
     bins = strikeCell{3};
-else 
+else
     % initialize bins
     bins = zeros(timeSteps, numStrikes+1);
     bins(1, :) = equidistantBins(numStrikes+1, M);
@@ -50,7 +50,7 @@ lambda = 1; % for the eta paths
 
 
 
-deltaT = 1/(timeSteps) * timeHorizon; 
+deltaT = 1/(timeSteps) * timeHorizon;
 
 
 
@@ -86,17 +86,17 @@ for i=2:timeSteps
     currentBeta = getBeta(pricePath, averageStrikes(i-1, :), beta(i-1, :));
     pricePath = pricePath .* lambdaD(i, numParticles);
     pricePath = pricePath .* exp( sqrt(deltaT) * w .* ...
-            currentBeta .* etaPath - (1 / 2) * (currentBeta).^2 .* ... 
+            currentBeta .* etaPath - (1 / 2) * (currentBeta).^2 .* ...
             etaSquared * deltaT );
-    
+
 	clear w; % free up some ram
-        
+
     %%% update strikes (and bins, if necessary)
     if (generateOrNo ~= 0)
         bins(i, :) = mostProbableBins(numStrikes+1, pricePath);
     end
     averageStrikes(i, :) = genAverageBin(bins(i, :));
-    
+
     %%% update eta
     w = generateBrownian(1, numParticles);
     %TODO is this right?
@@ -106,31 +106,31 @@ for i=2:timeSteps
     variance = exp(-2*lambda*i*deltaT) * V(i);
     etaPath = exp(Z - repmat(variance, 1, numParticles));
     etaSquared = etaPath .^2;
-    
+
     %%% compute expectation
-    
+
     % procede one strike at a time.
     %TODO: parallelize?
-    
+
     numerator = zeros(1, numStrikes);
     denominator = zeros(1, numStrikes);
-    
+
     for k=1:numStrikes
         dist = bins(i, k+1) - bins(i, k);
         deltaRow = delta(pricePath, averageStrikes(i, k), dist);
         numerator(k) = etaSquared * deltaRow';
         denominator(k) = sum(deltaRow);
     end
- 
+
     expectation(i, :) = numerator ./ denominator;
-    
+
     % update the betas
     % be careful about K dependence for sigma^2
     % TODO: is this guaranteed to be >= 0?
     beta(i, :) = sqrt(getDupireVol(i, averageStrikes(i, :)) ./ expectation(i, :));
 
-    
-    
+
+
 end
 
 end
@@ -162,7 +162,7 @@ end
 
 
 % generates the grid using the most probable points.
-% TODO: only run a few particles for this, just to get an approximation? 
+% TODO: only run a few particles for this, just to get an approximation?
 %    this will speed up actual runtime (but not asymptotic runtime)
 %    This might not be possible for multiple timesteps.
 function [bins] = mostProbableBins(numBins, prices)
@@ -175,7 +175,7 @@ bins = zeros(1, numBins);
 
 % Note that as x is sorted, then the jth percentile value is at index
 %    (j/100)*numParticles.
-% We ignore everything after the 99th percentile. 
+% We ignore everything after the 99th percentile.
 bins(1) = x(1);
 maxIndex = ceil(0.99*size(prices, 2));
 bins(numBins) = x(maxIndex);
@@ -197,22 +197,37 @@ function [output] = delta(prices, strike, dist)
 % note that kernel takes in a vector as input.
 % TODO: change dist to a vector.
 
-output = 1/dist * kernel((prices - strike)/dist);
+output = 1/dist *hatKernel((prices - strike)/dist);
 
 end
 
 
 % "naive" kernel.
-% output: 1 if x is in (-0.5, 0.5], 0 otherwise. 
-% vectorized. 
+% output: 1 if x is in (-0.5, 0.5], 0 otherwise.
+% vectorized.
 function [n] = kernel(x)
 
 n = x>-0.5 & x<= 0.5;
 
 end
 
+function [n] = hatKernel(x)
+ind = (abs(x) >= .5);
+ind2 = (abs(x) < .5);
+x(ind) = 0;
+x(ind2) = -abs(2*x(ind2)) + 1;
+n = x;
+end
 
-%vectorized Gaussian kernel. 
+function [n] = epanKernel(x)
+ind = (abs(x) <= 1)
+ind2 = (abs(x) > 1)
+x(ind2) = 0
+x(ind) = (3/4) * ( 1 - x(ind) .^2)
+n = x;
+end
+
+%vectorized Gaussian kernel.
 function [n] = gaussianKernel(x)
 c = 1 / sqrt(2*pi);
 n = c * exp(-1/2 * x.^2);
@@ -246,7 +261,7 @@ function [betaInterp] = getBeta(prices, strikeAverages, betaRow)
 betaInterp = interp1(strikeAverages, betaRow, prices, 'linear', 'extrap');
 % TODO:remove this
 %betaSq = zeros(size(betaRow));
-%for i=1:length(prices);   
+%for i=1:length(prices);
 %     leftIdx = search(prices(i));
 %     betaSq(i) = interpolate(betaRow, leftIdx, price(i));
 %end
