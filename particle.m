@@ -211,20 +211,18 @@ n = x>-0.5 & x<= 0.5;
 
 end
 
-function [n] = hatKernel(x)
+function [x] = hatKernel(x)
 ind = (abs(x) >= .5);
 ind2 = (abs(x) < .5);
 x(ind) = 0;
 x(ind2) = -abs(2*x(ind2)) + 1;
-n = x;
 end
 
-function [n] = epanKernel(x)
-ind = (abs(x) <= 1)
-ind2 = (abs(x) > 1)
-x(ind2) = 0
-x(ind) = (3/4) * ( 1 - x(ind) .^2)
-n = x;
+function [x] = epanKernel(x)
+ind = (abs(x) <= 1);
+ind2 = (abs(x) > 1);
+x(ind2) = 0;
+x(ind) = (3/4) * ( 1 - x(ind) .^2);
 end
 
 %vectorized Gaussian kernel.
