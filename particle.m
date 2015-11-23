@@ -225,6 +225,15 @@ x(ind2) = 0;
 x(ind) = (3/4) * ( 1 - x(ind) .^2);
 end
 
+
+function [x] = quarticKernel(x)
+out = abs(x) > 1;
+in = abs(x) <= 1;
+x(out) = 0;
+x(in) = (15/16) * (1 - x(in).^2).^2;
+end
+
+
 %vectorized Gaussian kernel.
 function [n] = gaussianKernel(x)
 c = 1 / sqrt(2*pi);
