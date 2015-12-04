@@ -17,7 +17,7 @@ error = ones(1,260);
 sumError = 0;
 
 for ts = 1:size(base_exp,1)
-   error(ts) = mserror(base_exp(ts, :), base_st(ts, :), comp_exp(ts, :), comp_st(ts, :));
-   sumError = sumError + mserror(base_exp(ts, :), base_st(ts, :), comp_exp(ts, :), comp_st(ts, :));
+   error(ts) = splineError(base_exp(ts, :), base_st(ts, :), comp_exp(ts, :), comp_st(ts, :));
+   sumError = sumError + splineError(base_exp(ts, :), base_st(ts, :), comp_exp(ts, :), comp_st(ts, :));
 end
 
