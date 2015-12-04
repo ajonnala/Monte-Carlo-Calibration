@@ -1,6 +1,6 @@
-function [tensor, numTimeSteps] = parseData(fileName, numStrikes)
+function [tensor, numTimeSteps] = parseDataMultiStepNum(fileName, numStrikes)
   % NOTE: numItems is 9 for the 10m particle data, and 7 for the incomplete
-  %     100m data.
+  %     100m data.l
   numItems = 9; % :%s/particles//gn  in vim to find this number
   headers = {'particles','strikes','time','zeros','initPrice','timeSteps'};
   dataTags ={'expectation','strikes'};
@@ -21,8 +21,7 @@ function [tensor, numTimeSteps] = parseData(fileName, numStrikes)
     strFormat = strcat(headers{6},':%f');
     data = textscan(fid, strFormat);
     numTimeSteps(i) = data{1};
-
-
+    
     
     %get the data
     for j=1:numData
