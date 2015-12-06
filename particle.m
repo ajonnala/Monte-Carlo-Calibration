@@ -87,7 +87,7 @@ for i=2:timeSteps
     pricePath = pricePath .* lambdaD(i, numParticles);
     pricePath = pricePath .* exp( sqrt(deltaT) * w .* ...
             currentBeta .* etaPath - (1 / 2) * (currentBeta).^2 .* ...
-            etaSquared * deltaT );
+            etaSquared * deltaT);
 
 	clear w; % free up some ram
 
@@ -261,11 +261,29 @@ function [vol] = getDupireVol(t, strikes)
     vol = ones(size(strikes)); % all 1's. Change this to the real dupire vol
 end
 
-function [betaInterp] = getBeta(prices, strikeAverages, betaRow)
+function [new_betaRow] = getBeta(prices, strikeAverages, betaRow)
 
 % TODO: fix extrapolation. Right now, it extrapolates with the same
-%    method as interpolation.
-betaInterp = interp1(strikeAverages, betaRow, prices, 'linear', 'extrap');
+%    method as interpolation. Update: FIXED
+%betaInterp = interp1(strikeAverages, betaRow, prices, 'linear', 'extrap');
+
+interp = interp1(strikeAverages,betaRow,prices(prices>min(strikeAverages) & prices<max(strikeAverages)),'spline','extrap'); %interpolate
+extrap = interp1(strikeAverages,betaRow,prices(prices<=min(strikeAverages) | prices>=max(strikeAverages)),'linear','extrap'); %exterpolate
+ind = (prices<=min(strikeAverages) | prices>=max(strikeAverages));
+
+new_betaRow = zeros(size(prices,1), size(prices,2));
+int_j = 1;
+ext_j = 1;
+for j = 1:length(prices)
+    if (ind(j)) %extrapolate
+        new_betaRow(j) = extrap(ext_j);
+        ext_j = ext_j + 1;
+    else %interpolate
+        new_betaRow(j) = interp(int_j);
+        int_j = int_j + 1;
+    end
+end
+
 % TODO:remove this
 %betaSq = zeros(size(betaRow));
 %for i=1:length(prices);
@@ -273,12 +291,10 @@ betaInterp = interp1(strikeAverages, betaRow, prices, 'linear', 'extrap');
 %     betaSq(i) = interpolate(betaRow, leftIdx, price(i));
 %end
 
-
 end
 
 % TODO: remove this if not necessary
 function interpolate(betaRow, leftInx)
-
 
 
 end
