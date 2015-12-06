@@ -197,7 +197,7 @@ function [output] = delta(prices, strike, dist)
 % note that kernel takes in a vector as input.
 % TODO: change dist to a vector.
 
-output = 1/dist *qaussianKernel((prices - strike)/dist);
+output = 1/dist *gaussianKernel((prices - strike)/dist);
 
 end
 

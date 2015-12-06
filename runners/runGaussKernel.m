@@ -1,11 +1,11 @@
 function runGaussKernel()
 
   numStrikes = 50;
-  timeHorizon = 20;
+  timeHorizon = 50;
   timeSteps = 261;
   initialPrice = .5;
    numParticles = 1000000;
-s = strcat('~/private/Monte-Carlo-Calibration/Data/Gauss_TH:',int2str(timeHorizon),'strikes:',int2str(numStrikes),'timesteps:',int2str(timeSteps),'numParticles:',int2str(numParticles));  
+s = strcat('~/private/Monte-Carlo-Calibration/Data/Gauss_TH:',int2str(timeHorizon),'strikes:',int2str(numStrikes),'timesteps:',int2str(timeSteps),'numParticles:',int2str(numParticles),'.txt');  
 file = fopen(s, 'a');
 
 %for initialPrice = 0.2:0.2:4
